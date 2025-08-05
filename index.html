@@ -4,11 +4,13 @@
   <meta charset="UTF-8">
   <title>成本計算器（自動匯率與稅）</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
   <style>
     body { font-family: Arial; padding: 20px; max-width: 600px; margin: auto; }
     label, input, select, button { display: block; margin: 8px 0; width: 100%; }
     button { padding: 10px; }
     .admin-link { margin-top: 30px; text-align: center; }
+    #preview { width: 100px; height: 100px; object-fit: cover; display: none; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -29,6 +31,9 @@
     <label>售價（台幣）<input id="sellingPrice" type="number" step="0.01" required /></label>
     <label>蝦皮抽成（%）<input id="shopeeFee" type="number" step="0.1" value="13.5" /></label>
 
+    <label>商品圖片<input type="file" accept="image/*" id="imageInput" /></label>
+    <img id="preview" />
+
     <label>預估關稅（台幣）<input id="tariffValue" type="number" readonly /></label>
     <label>總成本（台幣）<input id="totalCostValue" type="number" readonly /></label>
     <label>毛利（台幣）<input id="grossValue" type="number" readonly /></label>
@@ -48,21 +53,26 @@
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxa3FxbXB4eHVrcmJqZ2tqY2RrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzI2NTgsImV4cCI6MjA2OTM0ODY1OH0.iHEj0HyfCOcnf6F0J3DKYE9JWQnqZNReoZliLoJhvRk"
     );
 
-    let exchangeRate = 4.5; // fallback 預設
+    let exchangeRate = 4.5;
 
-    async function fetchExchangeRate() {
-      try {
-        const res = await fetch('https://www.taifex.com.tw/cht/3/dlFutDataDown?down_type=1&commodity_id=USD');
-        // 可改為中央銀行或其他 API，這裡只是範例
-      } catch (e) {
-        console.warn('無法取得匯率，使用預設 4.5');
-      }
-    }
+    document.getElementById('imageInput').addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      const productName = document.getElementById('productName').value.trim();
+      if (!file || !productName) return alert('請先輸入商品名稱再選擇圖片');
+
+      const compressed = await imageCompression(file, { maxWidthOrHeight: 600, maxSizeMB: 0.2 });
+      await supabase.storage.from("product-images").remove([`${productName}.jpg`]);
+      await supabase.storage.from("product-images").upload(`${productName}.jpg`, compressed, { upsert: true });
+
+      const preview = document.getElementById('preview');
+      preview.src = `https://sqkqqmpxxukrbjgkjcdk.supabase.co/storage/v1/object/public/product-images/${productName}.jpg?ts=${Date.now()}`;
+      preview.style.display = 'block';
+    });
 
     async function saveToSupabase(e) {
       e.preventDefault();
 
-      const name = document.getElementById('productName').value;
+      const name = document.getElementById('productName').value.trim();
       const category = document.getElementById('category').value;
       const unitCost = parseFloat(document.getElementById('unitCost').value);
       const domShip = parseFloat(document.getElementById('domesticShipping').value);
@@ -73,13 +83,11 @@
       const costNTD = unitCost * exchangeRate;
       const domShipNTD = domShip * exchangeRate;
       const tariff = 0.1 * costNTD;
-
       const totalCost = costNTD + domShipNTD + crossShip + tariff;
       const shopeeFeeValue = price * feePct / 100;
       const gross = price - totalCost - shopeeFeeValue;
       const grossPct = price ? (gross / price * 100) : 0;
 
-      // 顯示在輸入欄位
       document.getElementById('tariffValue').value = tariff.toFixed(2);
       document.getElementById('totalCostValue').value = totalCost.toFixed(2);
       document.getElementById('grossValue').value = gross.toFixed(2);
@@ -109,12 +117,11 @@
       } else {
         alert('儲存成功');
         document.getElementById('cost-form').reset();
+        document.getElementById('preview').style.display = 'none';
       }
     }
 
     document.getElementById('cost-form').addEventListener('submit', saveToSupabase);
-
-    // 自動顯示匯率（暫時顯示為固定）
     document.getElementById('rate-display').innerText = `目前使用匯率為：${exchangeRate}`;
   </script>
 </body>
