@@ -37,9 +37,17 @@
         <tr>
           <th>商品名稱</th>
           <th>分類</th>
-          <th>成本</th>
-          <th>售價</th>
-          <th>毛利</th>
+          <th>成本 (人民幣)</th>
+          <th>匯率</th>
+          <th>境內運費 (人民幣)</th>
+          <th>跨境運費 (台幣)</th>
+          <th>關稅 (台幣)</th>
+          <th>售價 (台幣)</th>
+          <th>蝦皮抽成 (%)</th>
+          <th>總成本 (台幣)</th>
+          <th>抽成金額 (台幣)</th>
+          <th>毛利 (台幣)</th>
+          <th>毛利率 (%)</th>
           <th>操作</th>
         </tr>
       </thead>
@@ -91,9 +99,17 @@
         tr.innerHTML = `
           <td><input type="text" value="${row.product_name}" onchange="updateField('${row.id}', 'product_name', this.value)"/></td>
           <td>${row.category || ''}</td>
-          <td>${row.total_cost}</td>
-          <td><input type="number" value="${row.selling_price}" onchange="updateField('${row.id}', 'selling_price', this.value)"/></td>
-          <td>${row.gross_margin}</td>
+          <td>${row.unit_cost ?? ''}</td>
+          <td>${row.exchange_rate ?? ''}</td>
+          <td>${row.domestic_shipping ?? ''}</td>
+          <td>${row.cross_shipping ?? ''}</td>
+          <td>${row.tariff ?? ''}</td>
+          <td><input type="number" value="${row.selling_price ?? ''}" onchange="updateField('${row.id}', 'selling_price', this.value)"/></td>
+          <td>${row.shopee_fee ?? ''}</td>
+          <td>${row.total_cost ?? ''}</td>
+          <td>${row.shopee_fee_value ?? ''}</td>
+          <td>${row.gross_margin ?? ''}</td>
+          <td>${row.gross_margin_percent ?? ''}</td>
           <td><button onclick="deleteRow('${row.id}')">刪除</button></td>
         `;
         tbody.appendChild(tr);
@@ -115,17 +131,17 @@
 
     function exportCSV() {
       const rows = document.querySelectorAll("#product-table tr");
-      let csv = "商品名稱,分類,成本,售價,毛利\n";
+      const headers = [
+        "商品名稱", "分類", "成本 (人民幣)", "匯率", "境內運費 (人民幣)", "跨境運費 (台幣)", "關稅 (台幣)",
+        "售價 (台幣)", "蝦皮抽成 (%)", "總成本 (台幣)", "抽成金額 (台幣)", "毛利 (台幣)", "毛利率 (%)"
+      ];
+      let csv = headers.join(',') + "\n";
       rows.forEach((tr, i) => {
-        if (i === 0) return; // skip header
+        if (i === 0) return;
         const cols = tr.querySelectorAll("td");
         if (cols.length) {
-          const name = cols[0].querySelector("input").value;
-          const category = cols[1].textContent;
-          const cost = cols[2].textContent;
-          const price = cols[3].querySelector("input").value;
-          const profit = cols[4].textContent;
-          csv += `${name},${category},${cost},${price},${profit}\n`;
+          const values = Array.from(cols).slice(0, 13).map(td => td.querySelector("input") ? td.querySelector("input").value : td.textContent.trim());
+          csv += values.join(',') + "\n";
         }
       });
       const blob = new Blob([csv], { type: "text/csv" });
