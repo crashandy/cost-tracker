@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>商品管理介面</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; max-width: 960px; margin: auto; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    input[type="text"], input[type="number"] {
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <h1>商品管理介面</h1>
+  <div id="login-box">
+    <p>請輸入密碼：</p>
+    <input type="password" id="password" />
+    <button onclick="checkPassword()">登入</button>
+  </div>
+
+  <div id="admin-panel" style="display:none">
+    <button onclick="exportCSV()">匯出 CSV</button>
+    <table id="product-table">
+      <thead>
+        <tr>
+          <th>商品名稱</th>
+          <th>成本</th>
+          <th>售價</th>
+          <th>毛利</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    const supabase = supabase.createClient(
+      `${window.NEXT_PUBLIC_SUPABASE_URL}`,
+      `${window.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+    );
+
+    const PASSWORD = "93586386";
+    function checkPassword() {
+      const input = document.getElementById("password").value;
+      if (input === PASSWORD) {
+        document.getElementById("login-box").style.display = "none";
+        document.getElementById("admin-panel").style.display = "block";
+        fetchData();
+      } else {
+        alert("密碼錯誤");
+      }
+    }
+
+    async function fetchData() {
+      const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false });
+      if (error) return alert("讀取失敗");
+      const tbody = document.querySelector("#product-table tbody");
+      tbody.innerHTML = "";
+      data.forEach((row) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><input type="text" value="${row.product_name}" onchange="updateField('${row.id}', 'product_name', this.value)"/></td>
+          <td>${row.total_cost}</td>
+          <td><input type="number" value="${row.selling_price}" onchange="updateField('${row.id}', 'selling_price', this.value)"/></td>
+          <td>${row.gross_margin}</td>
+          <td>
+            <button onclick="deleteRow('${row.id}')">刪除</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function updateField(id, field, value) {
+      const { error } = await supabase.from("products").update({ [field]: value }).eq("id", id);
+      if (error) alert("更新失敗");
+      else fetchData();
+    }
+
+    async function deleteRow(id) {
+      if (!confirm("確認刪除？")) return;
+      const { error } = await supabase.from("products").delete().eq("id", id);
+      if (error) alert("刪除失敗");
+      else fetchData();
+    }
+
+    function exportCSV() {
+      const rows = document.querySelectorAll("#product-table tr");
+      let csv = "商品名稱,成本,售價,毛利\n";
+      rows.forEach((tr, i) => {
+        if (i === 0) return; // skip header
+        const cols = tr.querySelectorAll("td");
+        if (cols.length) {
+          const name = cols[0].querySelector("input").value;
+          const cost = cols[1].textContent;
+          const price = cols[2].querySelector("input").value;
+          const profit = cols[3].textContent;
+          csv += `${name},${cost},${price},${profit}\n`;
+        }
+      });
+      const blob = new Blob([csv], { type: "text/csv" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "products.csv";
+      link.click();
+    }
+  </script>
+</body>
+</html>
