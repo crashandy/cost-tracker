@@ -29,10 +29,10 @@
     <label>售價（台幣）<input id="sellingPrice" type="number" step="0.01" required /></label>
     <label>蝦皮抽成（%）<input id="shopeeFee" type="number" step="0.1" value="13.5" /></label>
 
-    <p id="tariff-display"></p>
-    <p id="total-display"></p>
-    <p id="gross-display"></p>
-    <p id="gross-percent-display"></p>
+    <label>預估關稅（台幣）<input id="tariffValue" type="number" readonly /></label>
+    <label>總成本（台幣）<input id="totalCostValue" type="number" readonly /></label>
+    <label>毛利（台幣）<input id="grossValue" type="number" readonly /></label>
+    <label>毛利率（%）<input id="grossPercentValue" type="number" readonly /></label>
 
     <button type="submit">計算並儲存</button>
     <p id="rate-display"></p>
@@ -79,10 +79,11 @@
       const gross = price - totalCost - shopeeFeeValue;
       const grossPct = price ? (gross / price * 100) : 0;
 
-      document.getElementById('tariff-display').innerText = `預估關稅（10% 商品成本）：約 ${tariff.toFixed(2)} 元台幣`;
-      document.getElementById('total-display').innerText = `總成本（含運費與關稅）：約 ${totalCost.toFixed(2)} 元台幣`;
-      document.getElementById('gross-display').innerText = `毛利：${gross.toFixed(2)} 元台幣`;
-      document.getElementById('gross-percent-display').innerText = `毛利率：${grossPct.toFixed(2)}%`;
+      // 顯示在輸入欄位
+      document.getElementById('tariffValue').value = tariff.toFixed(2);
+      document.getElementById('totalCostValue').value = totalCost.toFixed(2);
+      document.getElementById('grossValue').value = gross.toFixed(2);
+      document.getElementById('grossPercentValue').value = grossPct.toFixed(2);
 
       const record = {
         product_name: name,
@@ -108,10 +109,6 @@
       } else {
         alert('儲存成功');
         document.getElementById('cost-form').reset();
-        document.getElementById('tariff-display').innerText = "";
-        document.getElementById('total-display').innerText = "";
-        document.getElementById('gross-display').innerText = "";
-        document.getElementById('gross-percent-display').innerText = "";
       }
     }
 
