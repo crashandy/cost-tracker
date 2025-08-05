@@ -45,9 +45,9 @@
           <th>匯率</th>
           <th>境內運費 (人民幣)</th>
           <th>跨境運費 (台幣)</th>
-          <th>關稅 (台幣)</th>
           <th>售價 (台幣)</th>
           <th>蝦皮抽成 (%)</th>
+          <th>關稅 (台幣)</th>
           <th>總成本 (台幣)</th>
           <th>毛利 (台幣)</th>
           <th>毛利率 (%)</th>
@@ -106,22 +106,49 @@
           <td><input type="number" value="${row.exchange_rate ?? ''}" id="rate-${row.id}"/></td>
           <td><input type="number" value="${row.domestic_shipping ?? ''}" id="dom-${row.id}"/></td>
           <td><input type="number" value="${row.cross_shipping ?? ''}" id="cross-${row.id}"/></td>
-          <td><input type="number" value="${row.tariff ?? ''}" id="tariff-${row.id}"/></td>
           <td><input type="number" value="${row.selling_price ?? ''}" id="price-${row.id}"/></td>
           <td><input type="number" value="${row.shopee_fee ?? ''}" id="fee-${row.id}"/></td>
-          <td><input type="number" value="${row.total_cost ?? ''}" id="total-${row.id}"/></td>
-          <td><input type="number" value="${row.gross_margin ?? ''}" id="gross-${row.id}"/></td>
-          <td><input type="number" value="${row.gross_margin_percent ?? ''}" id="percent-${row.id}"/></td>
+          <td><input type="number" id="tariff-${row.id}" readonly /></td>
+          <td><input type="number" id="total-${row.id}" readonly /></td>
+          <td><input type="number" id="gross-${row.id}" readonly /></td>
+          <td><input type="number" id="percent-${row.id}" readonly /></td>
           <td>
             <button onclick="applyUpdate('${row.id}')">更新</button>
             <button onclick="deleteRow('${row.id}')">刪除</button>
           </td>
         `;
         tbody.appendChild(tr);
+
+        // 自動計算顯示
+        updateDisplayFields(row.id);
       });
     }
 
+    function updateDisplayFields(id) {
+      const unit = parseFloat(document.getElementById(`unit-${id}`).value);
+      const rate = parseFloat(document.getElementById(`rate-${id}`).value);
+      const dom = parseFloat(document.getElementById(`dom-${id}`).value);
+      const cross = parseFloat(document.getElementById(`cross-${id}`).value);
+      const price = parseFloat(document.getElementById(`price-${id}`).value);
+      const fee = parseFloat(document.getElementById(`fee-${id}`).value);
+
+      const costNTD = unit * rate;
+      const domNTD = dom * rate;
+      const tariff = 0.1 * costNTD;
+      const total = costNTD + domNTD + cross + tariff;
+      const shopeeFeeValue = price * fee / 100;
+      const gross = price - total - shopeeFeeValue;
+      const percent = price ? (gross / price * 100) : 0;
+
+      document.getElementById(`tariff-${id}`).value = tariff.toFixed(2);
+      document.getElementById(`total-${id}`).value = total.toFixed(2);
+      document.getElementById(`gross-${id}`).value = gross.toFixed(2);
+      document.getElementById(`percent-${id}`).value = percent.toFixed(2);
+    }
+
     async function applyUpdate(id) {
+      updateDisplayFields(id);
+
       const updates = {
         product_name: document.getElementById(`name-${id}`).value,
         category: document.getElementById(`category-${id}`).value,
@@ -129,9 +156,9 @@
         exchange_rate: parseFloat(document.getElementById(`rate-${id}`).value),
         domestic_shipping: parseFloat(document.getElementById(`dom-${id}`).value),
         cross_shipping: parseFloat(document.getElementById(`cross-${id}`).value),
-        tariff: parseFloat(document.getElementById(`tariff-${id}`).value),
         selling_price: parseFloat(document.getElementById(`price-${id}`).value),
         shopee_fee: parseFloat(document.getElementById(`fee-${id}`).value),
+        tariff: parseFloat(document.getElementById(`tariff-${id}`).value),
         total_cost: parseFloat(document.getElementById(`total-${id}`).value),
         gross_margin: parseFloat(document.getElementById(`gross-${id}`).value),
         gross_margin_percent: parseFloat(document.getElementById(`percent-${id}`).value)
@@ -151,8 +178,7 @@
     function exportCSV() {
       const rows = document.querySelectorAll("#product-table tr");
       const headers = [
-        "商品名稱", "分類", "成本 (人民幣)", "匯率", "境內運費 (人民幣)", "跨境運費 (台幣)", "關稅 (台幣)",
-        "售價 (台幣)", "蝦皮抽成 (%)", "總成本 (台幣)", "毛利 (台幣)", "毛利率 (%)"
+        "商品名稱", "分類", "成本 (人民幣)", "匯率", "境內運費 (人民幣)", "跨境運費 (台幣)", "售價 (台幣)", "蝦皮抽成 (%)", "關稅 (台幣)", "總成本 (台幣)", "毛利 (台幣)", "毛利率 (%)"
       ];
       let csv = headers.join(',') + "\n";
       rows.forEach((tr, i) => {
