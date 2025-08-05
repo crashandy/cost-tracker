@@ -100,14 +100,14 @@
       data.forEach((row) => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td><input type="text" value="${row.product_name}" id="name-${row.id}"/></td>
+          <td><input type="text" value="${row.product_name}" id="name-${row.id}" oninput="updateDisplayFields('${row.id}')"/></td>
           <td><input type="text" value="${row.category}" id="category-${row.id}"/></td>
-          <td><input type="number" value="${row.unit_cost ?? ''}" id="unit-${row.id}"/></td>
-          <td><input type="number" value="${row.exchange_rate ?? ''}" id="rate-${row.id}"/></td>
-          <td><input type="number" value="${row.domestic_shipping ?? ''}" id="dom-${row.id}"/></td>
-          <td><input type="number" value="${row.cross_shipping ?? ''}" id="cross-${row.id}"/></td>
-          <td><input type="number" value="${row.selling_price ?? ''}" id="price-${row.id}"/></td>
-          <td><input type="number" value="${row.shopee_fee ?? ''}" id="fee-${row.id}"/></td>
+          <td><input type="number" value="${row.unit_cost ?? ''}" id="unit-${row.id}" oninput="updateDisplayFields('${row.id}')"/></td>
+          <td><input type="number" value="${row.exchange_rate ?? ''}" id="rate-${row.id}" oninput="updateDisplayFields('${row.id}')"/></td>
+          <td><input type="number" value="${row.domestic_shipping ?? ''}" id="dom-${row.id}" oninput="updateDisplayFields('${row.id}')"/></td>
+          <td><input type="number" value="${row.cross_shipping ?? ''}" id="cross-${row.id}" oninput="updateDisplayFields('${row.id}')"/></td>
+          <td><input type="number" value="${row.selling_price ?? ''}" id="price-${row.id}" oninput="updateDisplayFields('${row.id}')"/></td>
+          <td><input type="number" value="${row.shopee_fee ?? ''}" id="fee-${row.id}" oninput="updateDisplayFields('${row.id}')"/></td>
           <td><input type="number" id="tariff-${row.id}" readonly /></td>
           <td><input type="number" id="total-${row.id}" readonly /></td>
           <td><input type="number" id="gross-${row.id}" readonly /></td>
@@ -119,18 +119,17 @@
         `;
         tbody.appendChild(tr);
 
-        // 自動計算顯示
         updateDisplayFields(row.id);
       });
     }
 
     function updateDisplayFields(id) {
-      const unit = parseFloat(document.getElementById(`unit-${id}`).value);
-      const rate = parseFloat(document.getElementById(`rate-${id}`).value);
-      const dom = parseFloat(document.getElementById(`dom-${id}`).value);
-      const cross = parseFloat(document.getElementById(`cross-${id}`).value);
-      const price = parseFloat(document.getElementById(`price-${id}`).value);
-      const fee = parseFloat(document.getElementById(`fee-${id}`).value);
+      const unit = parseFloat(document.getElementById(`unit-${id}`).value) || 0;
+      const rate = parseFloat(document.getElementById(`rate-${id}`).value) || 0;
+      const dom = parseFloat(document.getElementById(`dom-${id}`).value) || 0;
+      const cross = parseFloat(document.getElementById(`cross-${id}`).value) || 0;
+      const price = parseFloat(document.getElementById(`price-${id}`).value) || 0;
+      const fee = parseFloat(document.getElementById(`fee-${id}`).value) || 0;
 
       const costNTD = unit * rate;
       const domNTD = dom * rate;
@@ -165,7 +164,6 @@
       };
       const { error } = await supabase.from("products").update(updates).eq("id", id);
       if (error) alert("更新失敗");
-      else fetchData();
     }
 
     async function deleteRow(id) {
