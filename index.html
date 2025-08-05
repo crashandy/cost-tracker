@@ -28,6 +28,12 @@
     <label>跨境運費（台幣）<input id="crossShipping" type="number" step="0.01" value="0" /></label>
     <label>售價（台幣）<input id="sellingPrice" type="number" step="0.01" required /></label>
     <label>蝦皮抽成（%）<input id="shopeeFee" type="number" step="0.1" value="13.5" /></label>
+
+    <p id="tariff-display"></p>
+    <p id="total-display"></p>
+    <p id="gross-display"></p>
+    <p id="gross-percent-display"></p>
+
     <button type="submit">計算並儲存</button>
     <p id="rate-display"></p>
   </form>
@@ -66,12 +72,17 @@
 
       const costNTD = unitCost * exchangeRate;
       const domShipNTD = domShip * exchangeRate;
-      const tariff = 0.1 * (costNTD + domShipNTD);
+      const tariff = 0.1 * costNTD;
 
       const totalCost = costNTD + domShipNTD + crossShip + tariff;
       const shopeeFeeValue = price * feePct / 100;
       const gross = price - totalCost - shopeeFeeValue;
       const grossPct = price ? (gross / price * 100) : 0;
+
+      document.getElementById('tariff-display').innerText = `預估關稅（10% 商品成本）：約 ${tariff.toFixed(2)} 元台幣`;
+      document.getElementById('total-display').innerText = `總成本（含運費與關稅）：約 ${totalCost.toFixed(2)} 元台幣`;
+      document.getElementById('gross-display').innerText = `毛利：${gross.toFixed(2)} 元台幣`;
+      document.getElementById('gross-percent-display').innerText = `毛利率：${grossPct.toFixed(2)}%`;
 
       const record = {
         product_name: name,
@@ -97,6 +108,10 @@
       } else {
         alert('儲存成功');
         document.getElementById('cost-form').reset();
+        document.getElementById('tariff-display').innerText = "";
+        document.getElementById('total-display').innerText = "";
+        document.getElementById('gross-display').innerText = "";
+        document.getElementById('gross-percent-display').innerText = "";
       }
     }
 
