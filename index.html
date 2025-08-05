@@ -8,6 +8,7 @@
     body { font-family: Arial; padding: 20px; max-width: 600px; margin: auto; }
     label, input, select, button { display: block; margin: 8px 0; width: 100%; }
     button { padding: 10px; }
+    .admin-link { margin-top: 30px; text-align: center; }
   </style>
 </head>
 <body>
@@ -22,6 +23,10 @@
     <button type="submit">計算並儲存</button>
     <p id="rate-display"></p>
   </form>
+
+  <div class="admin-link">
+    <a href="admin.html"><button>前往後台管理</button></a>
+  </div>
 
   <script>
     const supabase = supabase.createClient(
