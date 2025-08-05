@@ -10,6 +10,7 @@
     th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
     input[type="text"], input[type="number"] { width: 100%; }
     .filters { margin-top: 20px; display: flex; gap: 10px; align-items: center; }
+    .top-buttons { display: flex; justify-content: space-between; margin-bottom: 20px; }
   </style>
 </head>
 <body>
@@ -21,16 +22,19 @@
   </div>
 
   <div id="admin-panel" style="display:none">
-    <div class="filters">
-      <input type="text" id="searchKeyword" placeholder="搜尋商品名稱..." />
-      <select id="categoryFilter">
-        <option value="">全部分類</option>
-        <option value="用品">用品</option>
-        <option value="食品">食品</option>
-        <option value="經銷商">經銷商</option>
-        <option value="籠子">籠子</option>
-      </select>
-      <button onclick="exportCSV()">匯出 CSV</button>
+    <div class="top-buttons">
+      <a href="index.html"><button>回到前台</button></a>
+      <div class="filters">
+        <input type="text" id="searchKeyword" placeholder="搜尋商品名稱..." />
+        <select id="categoryFilter">
+          <option value="">全部分類</option>
+          <option value="用品">用品</option>
+          <option value="食品">食品</option>
+          <option value="經銷商">經銷商</option>
+          <option value="籠子">籠子</option>
+        </select>
+        <button onclick="exportCSV()">匯出 CSV</button>
+      </div>
     </div>
     <table id="product-table">
       <thead>
@@ -45,7 +49,6 @@
           <th>售價 (台幣)</th>
           <th>蝦皮抽成 (%)</th>
           <th>總成本 (台幣)</th>
-          <th>抽成金額 (台幣)</th>
           <th>毛利 (台幣)</th>
           <th>毛利率 (%)</th>
           <th>操作</th>
@@ -97,27 +100,43 @@
       data.forEach((row) => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td><input type="text" value="${row.product_name}" onchange="updateField('${row.id}', 'product_name', this.value)"/></td>
-          <td>${row.category || ''}</td>
-          <td>${row.unit_cost ?? ''}</td>
-          <td>${row.exchange_rate ?? ''}</td>
-          <td>${row.domestic_shipping ?? ''}</td>
-          <td>${row.cross_shipping ?? ''}</td>
-          <td>${row.tariff ?? ''}</td>
-          <td><input type="number" value="${row.selling_price ?? ''}" onchange="updateField('${row.id}', 'selling_price', this.value)"/></td>
-          <td>${row.shopee_fee ?? ''}</td>
-          <td>${row.total_cost ?? ''}</td>
-          <td>${row.shopee_fee_value ?? ''}</td>
-          <td>${row.gross_margin ?? ''}</td>
-          <td>${row.gross_margin_percent ?? ''}</td>
-          <td><button onclick="deleteRow('${row.id}')">刪除</button></td>
+          <td><input type="text" value="${row.product_name}" id="name-${row.id}"/></td>
+          <td><input type="text" value="${row.category}" id="category-${row.id}"/></td>
+          <td><input type="number" value="${row.unit_cost ?? ''}" id="unit-${row.id}"/></td>
+          <td><input type="number" value="${row.exchange_rate ?? ''}" id="rate-${row.id}"/></td>
+          <td><input type="number" value="${row.domestic_shipping ?? ''}" id="dom-${row.id}"/></td>
+          <td><input type="number" value="${row.cross_shipping ?? ''}" id="cross-${row.id}"/></td>
+          <td><input type="number" value="${row.tariff ?? ''}" id="tariff-${row.id}"/></td>
+          <td><input type="number" value="${row.selling_price ?? ''}" id="price-${row.id}"/></td>
+          <td><input type="number" value="${row.shopee_fee ?? ''}" id="fee-${row.id}"/></td>
+          <td><input type="number" value="${row.total_cost ?? ''}" id="total-${row.id}"/></td>
+          <td><input type="number" value="${row.gross_margin ?? ''}" id="gross-${row.id}"/></td>
+          <td><input type="number" value="${row.gross_margin_percent ?? ''}" id="percent-${row.id}"/></td>
+          <td>
+            <button onclick="applyUpdate('${row.id}')">更新</button>
+            <button onclick="deleteRow('${row.id}')">刪除</button>
+          </td>
         `;
         tbody.appendChild(tr);
       });
     }
 
-    async function updateField(id, field, value) {
-      const { error } = await supabase.from("products").update({ [field]: value }).eq("id", id);
+    async function applyUpdate(id) {
+      const updates = {
+        product_name: document.getElementById(`name-${id}`).value,
+        category: document.getElementById(`category-${id}`).value,
+        unit_cost: parseFloat(document.getElementById(`unit-${id}`).value),
+        exchange_rate: parseFloat(document.getElementById(`rate-${id}`).value),
+        domestic_shipping: parseFloat(document.getElementById(`dom-${id}`).value),
+        cross_shipping: parseFloat(document.getElementById(`cross-${id}`).value),
+        tariff: parseFloat(document.getElementById(`tariff-${id}`).value),
+        selling_price: parseFloat(document.getElementById(`price-${id}`).value),
+        shopee_fee: parseFloat(document.getElementById(`fee-${id}`).value),
+        total_cost: parseFloat(document.getElementById(`total-${id}`).value),
+        gross_margin: parseFloat(document.getElementById(`gross-${id}`).value),
+        gross_margin_percent: parseFloat(document.getElementById(`percent-${id}`).value)
+      };
+      const { error } = await supabase.from("products").update(updates).eq("id", id);
       if (error) alert("更新失敗");
       else fetchData();
     }
@@ -133,14 +152,14 @@
       const rows = document.querySelectorAll("#product-table tr");
       const headers = [
         "商品名稱", "分類", "成本 (人民幣)", "匯率", "境內運費 (人民幣)", "跨境運費 (台幣)", "關稅 (台幣)",
-        "售價 (台幣)", "蝦皮抽成 (%)", "總成本 (台幣)", "抽成金額 (台幣)", "毛利 (台幣)", "毛利率 (%)"
+        "售價 (台幣)", "蝦皮抽成 (%)", "總成本 (台幣)", "毛利 (台幣)", "毛利率 (%)"
       ];
       let csv = headers.join(',') + "\n";
       rows.forEach((tr, i) => {
         if (i === 0) return;
         const cols = tr.querySelectorAll("td");
         if (cols.length) {
-          const values = Array.from(cols).slice(0, 13).map(td => td.querySelector("input") ? td.querySelector("input").value : td.textContent.trim());
+          const values = Array.from(cols).slice(0, 12).map(td => td.querySelector("input") ? td.querySelector("input").value : td.textContent.trim());
           csv += values.join(',') + "\n";
         }
       });
