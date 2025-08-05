@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>成本計算器</title>
+  <!-- 載入 Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    label, input, select, button { display: block; margin: 8px 0; width: 100%; }
+    button { padding: 10px; }
+  </style>
+</head>
+<body>
+  <h1>商品成本計算</h1>
+  <form id="cost-form">
+    <label>商品名稱<input id="productName" required /></label>
+    <label>幣別
+      <select id="currency">
+        <option value="CNY">人民幣 (CNY)</option>
+        <option value="NTD">新台幣 (NTD)</option>
+      </select>
+    </label>
+    <label>單位成本<input id="unitCost" type="number" step="0.01" required /></label>
+    <label>匯率 (CNY→NTD)<input id="exchangeRate" type="number" step="0.001" value="4.5" /></label>
+    <label>境內運費<input id="domesticShipping" type="number" step="0.01" value="0" /></label>
+    <label>跨境運費<input id="crossShipping" type="number" step="0.01" value="0" /></label>
+    <label>關稅<input id="tariff" type="number" step="0.01" value="0" /></label>
+    <label>售價 (NTD)<input id="sellingPrice" type="number" step="0.01" required /></label>
+    <label>蝦皮抽成 (%)<input id="shopeeFee" type="number" step="0.1" value="5" /></label>
+    <button type="submit">計算並儲存</button>
+  </form>
+
+  <script>
+    // ① 初始化 Supabase（Netlify 會自動注入環境變數）
+    const supabase = supabase.createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+
+    // ② 當表單送出時執行
+    document.getElementById('cost-form').addEventListener('submit', async e => {
+      e.preventDefault();  // 避免頁面重整
+
+      // 讀取表單值
+      const name      = document.getElementById('productName').value;
+      const curr      = document.getElementById('currency').value;
+      let cost        = parseFloat(document.getElementById('unitCost').value);
+      let shipDom     = parseFloat(document.getElementById('domesticShipping').value);
+      const rate      = parseFloat(document.getElementById('exchangeRate').value);
+      const shipCross = parseFloat(document.getElementById('crossShipping').value);
+      const tax       = parseFloat(document.getElementById('tariff').value);
+      const price     = parseFloat(document.getElementById('sellingPrice').value);
+      const feePct    = parseFloat(document.getElementById('shopeeFee').value);
+
+      // 匯率換算
+      if (curr === 'CNY') {
+        cost    *= rate;
+        shipDom *= rate;
+      }
+
+      // 計算總成本、抽成、毛利
+      const totalCost    = cost + shipDom + shipCross + tax;
+      const feeValue     = price * feePct / 100;
+      const margin       = price - totalCost - feeValue;
+      const marginPct    = price ? (margin / price * 100) : 0;
+
+      // 組成要寫入資料庫的物件
+      const record = {
+        product_name: name,
+        currency: curr,
+        unit_cost: cost,
+        exchange_rate: rate,
+        domestic_shipping: shipDom,
+        cross_shipping: shipCross,
+        tariff: tax,
+        selling_price: price,
+        shopee_fee: feePct,
+        total_cost: parseFloat(totalCost.toFixed(2)),
+        shopee_fee_value: parseFloat(feeValue.toFixed(2)),
+        gross_margin: parseFloat(margin.toFixed(2)),
+        gross_margin_percent: parseFloat(marginPct.toFixed(2))
+      };
+
+      // ③ 寫入 Supabase
+      const { error } = await supabase
+        .from('products')
+        .insert([record]);
+
+      if (error) {
+        alert('儲存失敗，請查看瀏覽器主控台(err)：' + error.message);
+      } else {
+        alert('儲存成功！');
+        document.getElementById('cost-form').reset();
+      }
+    });
+  </script>
+</body>
+</html>
