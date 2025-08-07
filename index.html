@@ -57,30 +57,56 @@
     let exchangeRate = 4.5;
     let imageId = "";
 
+    const safeParse = (value) => {
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? 0 : parsed;
+    };
+
     document.getElementById('imageInput').addEventListener('change', async (event) => {
       const file = event.target.files[0];
-      if (!file) return alert('請選擇圖片');
-      imageId = crypto.randomUUID();
-      const compressed = await imageCompression(file, { maxWidthOrHeight: 600, maxSizeMB: 0.2 });
-      const { error } = await supabase.storage.from("product-images").upload(`${imageId}.jpg`, compressed, { upsert: true });
-      if (error) return alert("圖片上傳失敗");
-      const preview = document.getElementById('preview');
-      preview.src = `https://sqkqqmpxxukrbjgkjcdk.supabase.co/storage/v1/object/public/product-images/${imageId}.jpg?ts=${Date.now()}`;
-      preview.style.display = 'block';
+      if (!file) return;
+
+      const newImageId = crypto.randomUUID();
+      try {
+        const compressed = await imageCompression(file, {
+          maxWidthOrHeight: 600,
+          maxSizeMB: 0.2
+        });
+
+        const { error } = await supabase
+          .storage
+          .from("product-images")
+          .upload(`${newImageId}.jpg`, compressed, { upsert: true });
+
+        if (error) {
+          console.error("圖片上傳錯誤", error);
+          alert("圖片上傳失敗");
+          return;
+        }
+
+        imageId = newImageId;
+
+        const preview = document.getElementById('preview');
+        preview.src = `https://sqkqqmpxxukrbjgkjcdk.supabase.co/storage/v1/object/public/product-images/${imageId}.jpg?ts=${Date.now()}`;
+        preview.style.display = 'block';
+      } catch (err) {
+        console.error("圖片壓縮或上傳發生錯誤", err);
+        alert("處理圖片失敗");
+      }
     });
 
     async function saveToSupabase(e) {
       e.preventDefault();
+
       const name = document.getElementById('productName').value.trim();
-      // 不強制要求圖片
-      if (!imageId) imageId = null;
+      if (!name) return alert("請輸入商品名稱");
 
       const category = document.getElementById('category').value;
-      const unitCost = parseFloat(document.getElementById('unitCost').value);
-      const domShip = parseFloat(document.getElementById('domesticShipping').value);
-      const crossShip = parseFloat(document.getElementById('crossShipping').value);
-      const price = parseFloat(document.getElementById('sellingPrice').value);
-      const feePct = parseFloat(document.getElementById('shopeeFee').value);
+      const unitCost = safeParse(document.getElementById('unitCost').value);
+      const domShip = safeParse(document.getElementById('domesticShipping').value);
+      const crossShip = safeParse(document.getElementById('crossShipping').value);
+      const price = safeParse(document.getElementById('sellingPrice').value);
+      const feePct = safeParse(document.getElementById('shopeeFee').value);
 
       const costNTD = unitCost * exchangeRate;
       const domShipNTD = domShip * exchangeRate;
@@ -97,7 +123,7 @@
 
       const record = {
         product_name: name,
-        category: category,
+        category,
         currency: 'CNY',
         unit_cost: unitCost,
         exchange_rate: exchangeRate,
@@ -110,17 +136,19 @@
         shopee_fee_value: parseFloat(shopeeFeeValue.toFixed(2)),
         gross_margin: parseFloat(gross.toFixed(2)),
         gross_margin_percent: parseFloat(grossPct.toFixed(2)),
-        image_id: imageId
+        image_id: imageId || null
       };
 
       const { error } = await supabase.from('products').insert([record]);
       if (error) {
-        alert('儲存失敗');
-        console.error(error);
+        alert('儲存失敗，請查看 console');
+        console.error("Supabase insert error", error);
       } else {
-        alert('儲存成功');
+        alert('儲存成功！');
         document.getElementById('cost-form').reset();
-        document.getElementById('preview').style.display = 'none';
+        const preview = document.getElementById('preview');
+        preview.src = '';
+        preview.style.display = 'none';
         imageId = "";
       }
     }
