@@ -1,2 +1,205 @@
-<!-- 最終完整版 admin.html，含圖片上傳與刪除功能 -->
-<!-- 實際內容請由我在 Canvas 或前段貼文中整合，如需我產生完整版 HTML 可再叫我產生 -->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>商品管理介面</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; max-width: 960px; margin: auto; }
+    .table-container { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; table-layout: auto; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; min-width: 120px; }
+    th:first-child, td:first-child { position: sticky; left: 0; background: #fff; z-index: 2; }
+    input[type="text"], input[type="number"] { width: 100%; box-sizing: border-box; }
+    .filters { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .top-buttons { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+    .preview-img { width: 80px; height: 80px; object-fit: cover; margin-top: 4px; display: block; }
+    @media (min-width: 600px) {
+      .top-buttons { flex-direction: row; justify-content: space-between; }
+    }
+  </style>
+</head>
+<body>
+  <h1>商品管理介面</h1>
+  <div id="login-box">
+    <p>請輸入密碼：</p>
+    <input type="password" id="password" />
+    <button id="login-button">登入</button>
+  </div>
+
+  <div id="admin-panel" style="display:none">
+    <div class="top-buttons">
+      <a href="index.html"><button>回到前台</button></a>
+      <div class="filters">
+        <input type="text" id="searchKeyword" placeholder="搜尋商品名稱..." />
+        <select id="categoryFilter">
+          <option value="">全部分類</option>
+          <option value="用品">用品</option>
+          <option value="食品">食品</option>
+          <option value="經銷商">經銷商</option>
+          <option value="籠子">籠子</option>
+        </select>
+        <button id="exportCSVButton">匯出 CSV</button>
+      </div>
+    </div>
+    <div class="table-container">
+      <table id="product-table">
+        <thead>
+          <tr>
+            <th>商品名稱</th>
+            <th>分類</th>
+            <th>成本 (人民幣)</th>
+            <th>匯率</th>
+            <th>境內運費 (人民幣)</th>
+            <th>跨境運費 (台幣)</th>
+            <th>售價 (台幣)</th>
+            <th>蝦皮抽成 (%)</th>
+            <th>關稅 (台幣)</th>
+            <th>總成本 (台幣)</th>
+            <th>毛利 (台幣)</th>
+            <th>毛利率 (%)</th>
+            <th>商品圖</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+const PASSWORD = "93586386";
+const supabase = window.supabase.createClient(
+  "https://sqkqqmpxxukrbjgkjcdk.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxa3FxbXB4eHVrcmJqZ2tqY2RrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzI2NTgsImV4cCI6MjA2OTM0ODY1OH0.iHEj0HyfCOcnf6F0J3DKYE9JWQnqZNReoZliLoJhvRk"
+);
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("login-button").addEventListener("click", () => {
+    const input = document.getElementById("password").value;
+    if (input === PASSWORD) {
+      document.getElementById("login-box").style.display = "none";
+      document.getElementById("admin-panel").style.display = "block";
+      fetchData();
+    } else {
+      alert("密碼錯誤");
+    }
+  });
+
+  document.getElementById("searchKeyword").addEventListener("input", fetchData);
+  document.getElementById("categoryFilter").addEventListener("change", fetchData);
+  document.getElementById("exportCSVButton").addEventListener("click", exportCSV);
+});
+
+async function fetchData() {
+  const keyword = document.getElementById('searchKeyword').value.toLowerCase();
+  const category = document.getElementById('categoryFilter').value;
+
+  let { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false });
+  if (error) return alert("讀取失敗");
+
+  if (keyword) data = data.filter(item => item.product_name.toLowerCase().includes(keyword));
+  if (category) data = data.filter(item => item.category === category);
+
+  const tbody = document.querySelector("#product-table tbody");
+  tbody.innerHTML = "";
+
+  data.forEach((row) => {
+    const tr = document.createElement("tr");
+    const imgUrl = row.image_id ? `https://sqkqqmpxxukrbjgkjcdk.supabase.co/storage/v1/object/public/product-images/${row.image_id}.jpg` : "";
+    tr.innerHTML = `
+      <td><input type="text" value="${row.product_name}" id="name-${row.id}"/></td>
+      <td><input type="text" value="${row.category}" id="category-${row.id}"/></td>
+      <td><input type="number" value="${row.unit_cost ?? ''}" id="unit-${row.id}"/></td>
+      <td><input type="number" value="${row.exchange_rate ?? ''}" id="rate-${row.id}"/></td>
+      <td><input type="number" value="${row.domestic_shipping ?? ''}" id="dom-${row.id}"/></td>
+      <td><input type="number" value="${row.cross_shipping ?? ''}" id="cross-${row.id}"/></td>
+      <td><input type="number" value="${row.selling_price ?? ''}" id="price-${row.id}"/></td>
+      <td><input type="number" value="${row.shopee_fee ?? ''}" id="fee-${row.id}"/></td>
+      <td><input type="number" id="tariff-${row.id}" readonly /></td>
+      <td><input type="number" id="total-${row.id}" readonly /></td>
+      <td><input type="number" id="gross-${row.id}" readonly /></td>
+      <td><input type="number" id="percent-${row.id}" readonly /></td>
+      <td><img class="preview-img" id="preview-${row.id}" src="${imgUrl}" onerror="this.style.display='none'" /></td>
+      <td>
+        <button onclick="applyUpdate('${row.id}')">更新</button>
+        <button onclick="deleteRow('${row.id}')">刪除</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+    updateDisplayFields(row.id);
+  });
+}
+
+function updateDisplayFields(id) {
+  const unit = parseFloat(document.getElementById(`unit-${id}`).value) || 0;
+  const rate = parseFloat(document.getElementById(`rate-${id}`).value) || 0;
+  const dom = parseFloat(document.getElementById(`dom-${id}`).value) || 0;
+  const cross = parseFloat(document.getElementById(`cross-${id}`).value) || 0;
+  const price = parseFloat(document.getElementById(`price-${id}`).value) || 0;
+  const fee = parseFloat(document.getElementById(`fee-${id}`).value) || 0;
+  const costNTD = unit * rate;
+  const domNTD = dom * rate;
+  const tariff = 0.1 * costNTD;
+  const total = costNTD + domNTD + cross + tariff;
+  const shopeeFeeValue = price * fee / 100;
+  const gross = price - total - shopeeFeeValue;
+  const percent = price ? (gross / price * 100) : 0;
+
+  document.getElementById(`tariff-${id}`).value = tariff.toFixed(2);
+  document.getElementById(`total-${id}`).value = total.toFixed(2);
+  document.getElementById(`gross-${id}`).value = gross.toFixed(2);
+  document.getElementById(`percent-${id}`).value = percent.toFixed(2);
+}
+
+async function applyUpdate(id) {
+  updateDisplayFields(id);
+  const updates = {
+    product_name: document.getElementById(`name-${id}`).value,
+    category: document.getElementById(`category-${id}`).value,
+    unit_cost: parseFloat(document.getElementById(`unit-${id}`).value),
+    exchange_rate: parseFloat(document.getElementById(`rate-${id}`).value),
+    domestic_shipping: parseFloat(document.getElementById(`dom-${id}`).value),
+    cross_shipping: parseFloat(document.getElementById(`cross-${id}`).value),
+    selling_price: parseFloat(document.getElementById(`price-${id}`).value),
+    shopee_fee: parseFloat(document.getElementById(`fee-${id}`).value),
+    tariff: parseFloat(document.getElementById(`tariff-${id}`).value),
+    total_cost: parseFloat(document.getElementById(`total-${id}`).value),
+    gross_margin: parseFloat(document.getElementById(`gross-${id}`).value),
+    gross_margin_percent: parseFloat(document.getElementById(`percent-${id}`).value)
+  };
+  const { error } = await supabase.from("products").update(updates).eq("id", id);
+  if (error) alert("更新失敗");
+}
+
+async function deleteRow(id) {
+  if (!confirm("確認刪除？")) return;
+  const { error } = await supabase.from("products").delete().eq("id", id);
+  if (error) alert("刪除失敗");
+  else fetchData();
+}
+
+function exportCSV() {
+  const rows = document.querySelectorAll("#product-table tr");
+  const headers = [
+    "商品名稱", "分類", "成本 (人民幣)", "匯率", "境內運費 (人民幣)", "跨境運費 (台幣)", "售價 (台幣)", "蝦皮抽成 (%)", "關稅 (台幣)", "總成本 (台幣)", "毛利 (台幣)", "毛利率 (%)"
+  ];
+  let csv = headers.join(',') + "\n";
+  rows.forEach((tr, i) => {
+    if (i === 0) return;
+    const cols = tr.querySelectorAll("td");
+    if (cols.length) {
+      const values = Array.from(cols).slice(0, 12).map(td => td.querySelector("input") ? td.querySelector("input").value : td.textContent.trim());
+      csv += values.join(',') + "\n";
+    }
+  });
+  const blob = new Blob([csv], { type: "text/csv" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "products.csv";
+  link.click();
+}
+</script>
+</body>
+</html>
