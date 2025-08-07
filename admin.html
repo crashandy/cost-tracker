@@ -1,18 +1,22 @@
+<!-- ✅ 最新版 admin.html（圖片預覽支援 UUID + 手機操作優化） -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
   <title>商品管理介面</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
   <style>
     body { font-family: Arial; padding: 20px; max-width: 960px; margin: auto; }
-    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; }
-    input[type="text"], input[type="number"] { width: 100%; }
-    .filters { margin-top: 20px; display: flex; gap: 10px; align-items: center; }
-    .top-buttons { display: flex; justify-content: space-between; margin-bottom: 20px; }
-    .preview-img { width: 80px; height: 80px; object-fit: cover; margin-top: 4px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; overflow-x: auto; display: block; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; min-width: 120px; }
+    input[type="text"], input[type="number"] { width: 100%; box-sizing: border-box; }
+    .filters { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .top-buttons { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+    .preview-img { width: 80px; height: 80px; object-fit: cover; margin-top: 4px; display: block; }
+    @media (min-width: 600px) {
+      .top-buttons { flex-direction: row; justify-content: space-between; }
+    }
   </style>
 </head>
 <body>
@@ -53,7 +57,7 @@
           <th>總成本 (台幣)</th>
           <th>毛利 (台幣)</th>
           <th>毛利率 (%)</th>
-          <th>圖片上傳</th>
+          <th>商品圖</th>
           <th>操作</th>
         </tr>
       </thead>
@@ -68,21 +72,19 @@
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxa3FxbXB4eHVrcmJqZ2tqY2RrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzI2NTgsImV4cCI6MjA2OTM0ODY1OH0.iHEj0HyfCOcnf6F0J3DKYE9JWQnqZNReoZliLoJhvRk"
     );
 
-    document.addEventListener("DOMContentLoaded", () => {
-      document.getElementById("login-button").addEventListener("click", () => {
-        const input = document.getElementById("password").value;
-        if (input === PASSWORD) {
-          document.getElementById("login-box").style.display = "none";
-          document.getElementById("admin-panel").style.display = "block";
-          fetchData();
-        } else {
-          alert("密碼錯誤");
-        }
-      });
-
-      document.getElementById("searchKeyword").addEventListener("input", fetchData);
-      document.getElementById("categoryFilter").addEventListener("change", fetchData);
+    document.getElementById("login-button").addEventListener("click", () => {
+      const input = document.getElementById("password").value;
+      if (input === PASSWORD) {
+        document.getElementById("login-box").style.display = "none";
+        document.getElementById("admin-panel").style.display = "block";
+        fetchData();
+      } else {
+        alert("密碼錯誤");
+      }
     });
+
+    document.getElementById("searchKeyword").addEventListener("input", fetchData);
+    document.getElementById("categoryFilter").addEventListener("change", fetchData);
 
     async function fetchData() {
       const keyword = document.getElementById('searchKeyword').value.toLowerCase();
@@ -100,25 +102,25 @@
 
       const tbody = document.querySelector("#product-table tbody");
       tbody.innerHTML = "";
+
       data.forEach((row) => {
         const tr = document.createElement("tr");
+        const imgUrl = row.image_id ? `https://sqkqqmpxxukrbjgkjcdk.supabase.co/storage/v1/object/public/product-images/${row.image_id}.jpg` : "";
+
         tr.innerHTML = `
-          <td><input type="text" value="${row.product_name}" id="name-${row.id}" oninput="updateDisplayFields('${row.id}')"/></td>
+          <td><input type="text" value="${row.product_name}" id="name-${row.id}"/></td>
           <td><input type="text" value="${row.category}" id="category-${row.id}"/></td>
-          <td><input type="number" value="${row.unit_cost ?? ''}" id="unit-${row.id}" oninput="updateDisplayFields('${row.id}')"/></td>
-          <td><input type="number" value="${row.exchange_rate ?? ''}" id="rate-${row.id}" oninput="updateDisplayFields('${row.id}')"/></td>
-          <td><input type="number" value="${row.domestic_shipping ?? ''}" id="dom-${row.id}" oninput="updateDisplayFields('${row.id}')"/></td>
-          <td><input type="number" value="${row.cross_shipping ?? ''}" id="cross-${row.id}" oninput="updateDisplayFields('${row.id}')"/></td>
-          <td><input type="number" value="${row.selling_price ?? ''}" id="price-${row.id}" oninput="updateDisplayFields('${row.id}')"/></td>
-          <td><input type="number" value="${row.shopee_fee ?? ''}" id="fee-${row.id}" oninput="updateDisplayFields('${row.id}')"/></td>
+          <td><input type="number" value="${row.unit_cost ?? ''}" id="unit-${row.id}"/></td>
+          <td><input type="number" value="${row.exchange_rate ?? ''}" id="rate-${row.id}"/></td>
+          <td><input type="number" value="${row.domestic_shipping ?? ''}" id="dom-${row.id}"/></td>
+          <td><input type="number" value="${row.cross_shipping ?? ''}" id="cross-${row.id}"/></td>
+          <td><input type="number" value="${row.selling_price ?? ''}" id="price-${row.id}"/></td>
+          <td><input type="number" value="${row.shopee_fee ?? ''}" id="fee-${row.id}"/></td>
           <td><input type="number" id="tariff-${row.id}" readonly /></td>
           <td><input type="number" id="total-${row.id}" readonly /></td>
           <td><input type="number" id="gross-${row.id}" readonly /></td>
           <td><input type="number" id="percent-${row.id}" readonly /></td>
-          <td>
-            <input type="file" accept="image/*" onchange="uploadImage(event, '${row.product_name}')" /><br>
-            <img id="preview-${row.product_name}" class="preview-img" src="https://sqkqqmpxxukrbjgkjcdk.supabase.co/storage/v1/object/public/product-images/${row.product_name}.jpg" onerror="this.style.display='none'" />
-          </td>
+          <td><img class="preview-img" id="preview-${row.id}" src="${imgUrl}" onerror="this.style.display='none'" /></td>
           <td>
             <button onclick="applyUpdate('${row.id}')">更新</button>
             <button onclick="deleteRow('${row.id}')">刪除</button>
@@ -198,20 +200,6 @@
       link.href = URL.createObjectURL(blob);
       link.download = "products.csv";
       link.click();
-    }
-
-    async function uploadImage(event, productName) {
-      const file = event.target.files[0];
-      if (!file || !productName) return;
-
-      const compressedFile = await imageCompression(file, { maxWidthOrHeight: 600, maxSizeMB: 0.2 });
-      await supabase.storage.from("product-images").remove([`${productName}.jpg`]);
-      const { error } = await supabase.storage.from("product-images").upload(`${productName}.jpg`, compressedFile, { upsert: true });
-      if (error) return alert("圖片上傳失敗");
-
-      const img = document.getElementById(`preview-${productName}`);
-      img.src = `https://sqkqqmpxxukrbjgkjcdk.supabase.co/storage/v1/object/public/product-images/${productName}.jpg?timestamp=${Date.now()}`;
-      img.style.display = 'block';
     }
   </script>
 </body>
