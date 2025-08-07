@@ -1,4 +1,3 @@
-<!-- ✅ 最新版 index.html（支援 UUID 圖片上傳 + RWD） -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -60,13 +59,11 @@
 
     document.getElementById('imageInput').addEventListener('change', async (event) => {
       const file = event.target.files[0];
-      if (!file) return;
+      if (!file) return alert('請選擇圖片');
       imageId = crypto.randomUUID();
-
       const compressed = await imageCompression(file, { maxWidthOrHeight: 600, maxSizeMB: 0.2 });
       const { error } = await supabase.storage.from("product-images").upload(`${imageId}.jpg`, compressed, { upsert: true });
       if (error) return alert("圖片上傳失敗");
-
       const preview = document.getElementById('preview');
       preview.src = `https://sqkqqmpxxukrbjgkjcdk.supabase.co/storage/v1/object/public/product-images/${imageId}.jpg?ts=${Date.now()}`;
       preview.style.display = 'block';
@@ -74,8 +71,9 @@
 
     async function saveToSupabase(e) {
       e.preventDefault();
-
       const name = document.getElementById('productName').value.trim();
+      if (!imageId) return alert('請先上傳商品圖片');
+
       const category = document.getElementById('category').value;
       const unitCost = parseFloat(document.getElementById('unitCost').value);
       const domShip = parseFloat(document.getElementById('domesticShipping').value);
@@ -111,7 +109,7 @@
         shopee_fee_value: parseFloat(shopeeFeeValue.toFixed(2)),
         gross_margin: parseFloat(gross.toFixed(2)),
         gross_margin_percent: parseFloat(grossPct.toFixed(2)),
-        image_id: imageId || null
+        image_id: imageId
       };
 
       const { error } = await supabase.from('products').insert([record]);
