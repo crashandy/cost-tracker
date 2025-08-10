@@ -1,23 +1,26 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>商品成本計算</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
   <style>
-    body { font-family: Arial; padding: 20px; max-width: 600px; margin: auto; }
+    body { font-family: Arial, "Noto Sans TC", sans-serif; padding: 20px; max-width: 640px; margin: auto; }
     label, input, select, button { display: block; margin: 8px 0; width: 100%; }
     button { padding: 12px; font-size: 16px; }
     .admin-link { margin-top: 30px; text-align: center; }
-    #preview { width: 100px; height: 100px; object-fit: cover; display: none; margin-top: 10px; }
+    #preview { width: 120px; height: 120px; object-fit: cover; display: none; margin-top: 10px; border-radius: 8px; border: 1px solid #ddd; }
+    .hint { color: #666; font-size: 13px; margin-top: -6px; }
   </style>
 </head>
 <body>
   <h1>商品成本計算</h1>
+
   <form id="cost-form">
     <label>商品名稱<input id="productName" required /></label>
+
     <label>分類
       <select id="category" required>
         <option value="用品">用品</option>
@@ -26,14 +29,18 @@
         <option value="籠子">籠子</option>
       </select>
     </label>
+
     <label>商品成本（人民幣）<input id="unitCost" type="number" step="0.01" required /></label>
     <label>境內運費（人民幣）<input id="domesticShipping" type="number" step="0.01" value="0" /></label>
     <label>跨境運費（台幣）<input id="crossShipping" type="number" step="0.01" value="0" /></label>
     <label>售價（台幣）<input id="sellingPrice" type="number" step="0.01" required /></label>
     <label>蝦皮抽成（%）<input id="shopeeFee" type="number" step="0.1" value="13.5" /></label>
 
-    <label>商品圖片<input type="file" accept="image/*" id="imageInput" /></label>
-    <img id="preview" />
+    <label>商品圖片
+      <input type="file" accept="image/*" id="imageInput" />
+      <div class="hint">（可選）會壓縮成 jpeg，上傳到 bucket：product-images</div>
+    </label>
+    <img id="preview" alt="預覽圖" />
 
     <label>預估關稅（台幣）<input id="tariffValue" type="number" readonly /></label>
     <label>總成本（台幣）<input id="totalCostValue" type="number" readonly /></label>
@@ -45,56 +52,78 @@
   </form>
 
   <div class="admin-link">
-    <a href="admin.html"><button>前往後台管理</button></a>
+    <a href="admin.html"><button type="button">前往後台管理</button></a>
   </div>
 
   <script>
+    // ====== Supabase 初始化 ======
     const supabase = window.supabase.createClient(
       "https://sqkqqmpxxukrbjgkjcdk.supabase.co",
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxa3FxbXB4eHVrcmJqZ2tqY2RrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3NzI2NTgsImV4cCI6MjA2OTM0ODY1OH0.iHEj0HyfCOcnf6F0J3DKYE9JWQnqZNReoZliLoJhvRk"
     );
 
-    let exchangeRate = 4.5;
+    // ====== 設定 ======
+    let exchangeRate = 4.5; // 你可在這裡調整匯率
     let imageId = "";
+    let imagePath = ""; // 真正上傳到 bucket 的路徑 (e.g. "xxxxx.jpg")
+    let imagePublicUrl = ""; // 供預覽用
 
     const safeParse = (value) => {
-      const parsed = parseFloat(value);
-      return isNaN(parsed) ? 0 : parsed;
+      const n = parseFloat(value);
+      return Number.isFinite(n) ? n : 0;
     };
 
+    // ====== 圖片處理與上傳 ======
     document.getElementById('imageInput').addEventListener('change', async (event) => {
-      const file = event.target.files[0];
+      const file = event.target.files?.[0];
       if (!file) return;
 
-      const newImageId = crypto.randomUUID();
+      const newImageId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      const targetName = `${newImageId}.jpg`; // 以 UUID 命名
+
       try {
-        const compressed = await imageCompression(file, {
+        // 壓縮成 jpeg（600 邊、~0.2MB）
+        const compressedBlob = await imageCompression(file, {
           maxWidthOrHeight: 600,
-          maxSizeMB: 0.2
+          maxSizeMB: 0.2,
+          fileType: 'image/jpeg',
+          initialQuality: 0.8
         });
 
-        const { error } = await supabase
+        // 轉成 File 並指定 type
+        const jpegFile = new File([compressedBlob], targetName, { type: 'image/jpeg' });
+
+        // 上傳到 Supabase Storage
+        const { error: upErr } = await supabase
           .storage
           .from("product-images")
-          .upload(`${newImageId}.jpg`, compressed, { upsert: true });
+          .upload(targetName, jpegFile, { contentType: 'image/jpeg', cacheControl: '3600', upsert: true });
 
-        if (error) {
-          console.error("圖片上傳錯誤", error);
-          alert("圖片上傳失敗");
+        if (upErr) {
+          console.error("圖片上傳錯誤", upErr);
+          alert("圖片上傳失敗：請檢查 Storage policy 是否允許 insert 到 product-images，或打開 console 看錯誤細節。");
           return;
         }
 
         imageId = newImageId;
+        imagePath = targetName;
+
+        // 取得公開網址（比手動拼 URL 安全）
+        const { data: pub } = supabase.storage.from("product-images").getPublicUrl(targetName);
+        imagePublicUrl = pub?.publicUrl || "";
 
         const preview = document.getElementById('preview');
-        preview.src = `https://sqkqqmpxxukrbjgkjcdk.supabase.co/storage/v1/object/public/product-images/${imageId}.jpg?ts=${Date.now()}`;
-        preview.style.display = 'block';
+        if (imagePublicUrl) {
+          preview.src = imagePublicUrl + `?ts=${Date.now()}`;
+          preview.style.display = 'block';
+        }
       } catch (err) {
         console.error("圖片壓縮或上傳發生錯誤", err);
         alert("處理圖片失敗");
       }
     });
 
+    // ====== 計算與寫入資料庫 ======
     async function saveToSupabase(e) {
       e.preventDefault();
 
@@ -121,6 +150,7 @@
       document.getElementById('grossValue').value = gross.toFixed(2);
       document.getElementById('grossPercentValue').value = grossPct.toFixed(2);
 
+      // 準備要寫入的紀錄
       const record = {
         product_name: name,
         category,
@@ -136,10 +166,26 @@
         shopee_fee_value: parseFloat(shopeeFeeValue.toFixed(2)),
         gross_margin: parseFloat(gross.toFixed(2)),
         gross_margin_percent: parseFloat(grossPct.toFixed(2)),
-        image_id: imageId || null
       };
 
-      const { error } = await supabase.from('products').insert([record]);
+      // 只有真的「有圖片」才帶 image_id（避免沒此欄位時報錯）
+      if (imageId) {
+        record.image_id = imageId; // 建議你在 DB 新增此欄位
+        // 若你也想存完整網址，可另外在 DB 新增 image_url 欄位
+        // record.image_url = imagePublicUrl;
+      }
+
+      // 嘗試 insert；若遇到 PGRST204（欄位不存在），就移除 image_id 再試一次
+      let { error } = await supabase.from('products').insert([record]);
+
+      if (error && error.code === 'PGRST204') {
+        console.warn("偵測到資料表沒有 image_id 欄位，將移除此欄位後重試一次。");
+        delete record.image_id;
+        // delete record.image_url; // 如果你有加 image_url 也一併刪除
+        const retry = await supabase.from('products').insert([record]);
+        error = retry.error;
+      }
+
       if (error) {
         alert('儲存失敗，請查看 console');
         console.error("Supabase insert error", error);
@@ -150,6 +196,8 @@
         preview.src = '';
         preview.style.display = 'none';
         imageId = "";
+        imagePath = "";
+        imagePublicUrl = "";
       }
     }
 
